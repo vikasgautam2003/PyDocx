@@ -1,0 +1,186 @@
+# version: '3.8'
+
+# services: 
+
+#   qdrant:
+#     image: qdrant/qdrant:latest
+#     container_name: docunexus_vector_db
+#     ports:
+#       - "6333:6333"
+#       - "6334:6334" 
+#     volumes:
+#       - ./data/qdrant_data:/qdrant/storage
+#     networks:
+#       - docunexus_network
+
+#   redis:
+#     image: redis:alpine
+#     container_name: docunexus_broker
+#     ports:
+#       - "6379:6379"
+#     networks:
+#       - docunexus_network
+
+#   api:  
+#     build:
+#       context: ./backend
+#       dockerfile: Dockerfile
+#     container_name: docunexus_api
+#     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+#     volumes: 
+#       - ./backend:/app
+#     ports:
+#       - "8000:8000"
+#     env_file: .env
+#     environment:
+#       - REDIS_URL=redis://redis:6379/0
+#       - QDRANT_URL=http://qdrant:6333
+#       - APP_ENV=dev
+#     depends_on:
+#       - redis
+#       - qdrant
+#     networks:
+#       - docunexus_network
+
+#   worker: 
+#     build: 
+#       context: ./backend
+#       dockerfile: Dockerfile
+#     container_name: docunexus_worker
+#     command: celery -A core.celery_app worker --loglevel=info
+
+#     volumes: 
+#       - ./backend:/app
+   
+#     env_file: .env
+#     environment:
+#       - REDIS_URL=redis://redis:6379/0
+#       - QDRANT_URL=http://qdrant:6333
+#       - APP_ENV=dev
+#     depends_on:
+#       - redis
+#       - qdrant
+#     networks:
+#       - docunexus_network
+
+#   web:  
+#     build:
+#       context: ./frontend
+#       dockerfile: Dockerfile
+#     container_name: docunexus_web
+#     command: sh -c "npm install && npm run dev"
+
+#     volumes:
+#       - ./frontend:/app
+#       - /app/node_modules 
+#       - ./frontend/.next:/app/.next
+#     ports:
+#       - "3000:3000"
+#     environment:
+#       - NEXT_PUBLIC_API_URL=http://localhost:8000
+#     depends_on:
+#       - api
+#     networks:
+#       - docunexus_network
+
+# networks:
+#   docunexus_network:
+#     driver: bridge
+
+
+
+
+
+
+
+
+
+
+
+
+services:
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: docunexus_vector_db
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - ./data/qdrant_data:/qdrant/storage
+    networks:
+      - docunexus_network
+
+  redis:
+    image: redis:alpine
+    container_name: docunexus_broker
+    ports:
+      - "6379:6379"
+    networks:
+      - docunexus_network
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: docunexus_api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+      - APP_ENV=dev
+    depends_on:
+      - redis
+      - qdrant
+    networks:
+      - docunexus_network
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: docunexus_worker
+    command: celery -A app.core.celery_app worker --loglevel=info
+
+    volumes:
+      - ./backend:/app
+    env_file: .env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+      - APP_ENV=dev
+    depends_on:
+      - redis
+      - qdrant
+      - api
+    networks:
+      - docunexus_network
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: docunexus_web
+    command: sh -c "npm install && npm run dev"
+
+    volumes:
+      - ./frontend:/app
+       - /app/.next 
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - api
+    networks:
+      - docunexus_network
+
+networks:
+  docunexus_network:
+    driver: bridge
