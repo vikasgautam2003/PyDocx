@@ -7,11 +7,29 @@ import { useAgent } from "@/hooks/useAgent";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
+import dynamic from "next/dynamic";
+
+
+const PDFViewer = dynamic(
+  () => import("@/app/components/pdf-viewer").then((mod) => mod.PDFViewer),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center text-slate-400">
+        Loading PDF Engine...
+      </div>
+    )
+  }
+);
+
+
 
 export default function Home() {
   const [fileId, setFileId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
+
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   const { steps, isThinking, chat } = useAgent();
 
@@ -22,12 +40,17 @@ export default function Home() {
     setIsDrawerOpen(true);
   };
 
+  const handleUploadComplete = (id: string, file: File) => {
+    setFileId(id);
+    setPdfUrl(URL.createObjectURL(file));
+  }
+
   if (!fileId) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
         <h1 className="text-4xl font-bold tracking-tight mb-2">DocuNexus 🧠</h1>
         <p className="text-slate-500 mb-8">Upload a PDF to start the Ghost Agent.</p>
-        <UploadZone onUploadComplete={setFileId} />
+        <UploadZone onUploadComplete={handleUploadComplete} />
       </main>
     );
   }
@@ -38,7 +61,7 @@ export default function Home() {
     <main className="flex min-h-screen bg-white">
       <div className="hidden lg:block w-1/2 border-r bg-slate-100 p-4">
         <div className="h-full flex items-center justify-center text-slate-400 border-2 border-dashed rounded-lg">
-          PDF Viewer Integration Coming in Step 3.3
+          <PDFViewer url={pdfUrl} />
         </div>
       </div>
 

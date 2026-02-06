@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 
 interface UploadZoneProps{
-    onUploadComplete: (fileId: string) => void;
+    onUploadComplete: (fileId: string, file: File) => void;
 }
 
 export function UploadZone({ onUploadComplete }: UploadZoneProps) {
@@ -47,7 +47,7 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
 
 
 
-            onUploadComplete(data.id);
+            onUploadComplete(data.id, file);
         } 
         catch (error) {
             toast.error("Upload Failed", {
