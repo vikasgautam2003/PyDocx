@@ -175,6 +175,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import dynamic from "next/dynamic";
+import ReactMarkdown from "react-markdown";
+
 
 const PDFViewer = dynamic(
   () => import("@/app/components/pdf-viewer").then((mod) => mod.PDFViewer),
@@ -267,10 +269,12 @@ export default function Home() {
               <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-white shrink-0">
                 AI
               </div>
-              <div className="space-y-2">
-                <div className="prose prose-slate max-w-none">
-                  <p>{lastAnswer.content}</p>
-                </div>
+              <div className="space-y-2 w-full">
+                <article className="prose prose-slate prose-sm max-w-none">
+                  <ReactMarkdown>
+                    {lastAnswer.content}
+                  </ReactMarkdown>
+                </article>
 
                 {/* CITATIONS SECTION */}
                 {lastAnswer.citations && lastAnswer.citations.length > 0 && (

@@ -60,10 +60,18 @@ def generate(state: AgentState):
 
     unique_citations.sort(key=lambda x: x["page"])
 
-    template = """You are a helpful assistant for Question-Answering tasks.
-    Use the following pieces of retrieved context to answer the question.
-    If you don't know the answer, just say that you don't know.
-    
+    template = """You are an expert teacher and technical assistant. 
+    Your goal is to answer the user's question clearly, accurately, and well-structured based *only* on the provided context.
+
+    structure your answer using Markdown formatting:
+    - Use **Bold** for key terms or important numbers.
+    - Use `## Headings` to separate different topics or sections.
+    - Use lists (- Item 1) for steps, features, or multiple points.
+    - If there is code, use code blocks.
+    - Be concise but thorough.
+
+    If the answer is not in the context, politely say you don't know.
+
     Context:
     {context}
 
