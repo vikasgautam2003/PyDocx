@@ -9,6 +9,10 @@ from langchain_core.output_parsers import StrOutputParser
 from app.core.vector_store import get_vector_store
 from langgraph.graph import StateGraph, END
 
+from pydantic import BaseModel, Field
+from typing import List
+
+
 
 class AgentState(TypedDict):
     question: str
@@ -23,6 +27,52 @@ llm = ChatGoogleGenerativeAI(
     temperature=0,
     max_retries=2,
 )
+
+
+
+async def generate_document_briefing(file_id: str):
+    print(f"📊 [Briefing] Generating summary for {file_id}...")
+
+    vector_store = get_vector_store(namespace=file_id)
+    retriever = vector_store.as_retriever(search_kwargs={"k": 5})
+
+    docs = await retriever.ainvoke("introduction summary abstract overview")
+
+    context_text = "\n\n".join([d.page_content for d in docs])[:4000]
+
+    template = """You are a senior analyst. 
+    Analyze the following document excerpt and provide a structured briefing.
+    
+    Document Excerpt:
+    {context}
+    
+    Output strictly in JSON format with these fields:
+    - "summary": A list of 3 concise bullet points summarizing the key themes.
+    - "suggested_questions": A list of 3 specific, interesting questions a user might ask about this text.
+    
+    JSON:
+    """
+
+    
+   
+
+    class Briefing(BaseModel):
+        summary: List[str] = Field(description="3 bullet points summary")
+        suggested_questions: List[str] = Field(description="3 suggested follow-up questions")
+
+    structured_llm = llm.with_structured_output(Briefing)
+
+    try:
+        response = await structured_llm.ainvoke(template.format(context=context_text))
+        return response.dict()
+    except Exception as e:
+        print(f"⚠️ Briefing Error: {e}")
+        return {
+            "summary": ["Could not generate summary."],
+            "suggested_questions": ["What is this document about?"]
+        }
+
+
 
 
 def retrieve(state: AgentState):
