@@ -5,6 +5,7 @@ export type AgentStep = {
   type: "log" | "answer";
   content: string;
   status?: "pending" | "done";
+  citations?: number[];
 };
 
 export function useAgent() {
@@ -37,7 +38,7 @@ export function useAgent() {
       setTimeout(() => {
         setSteps(prev => [
           ...prev,
-          { id: Date.now() + 4, type: "answer", content: data.answer }
+          { id: Date.now() + 4, type: "answer", content: data.answer, citations: data.citations }
         ]);
         setIsThinking(false);
       }, 800);

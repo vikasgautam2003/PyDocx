@@ -213,34 +213,35 @@ export default function Home() {
           />
 
           {lastAnswer && (
-            <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-white shrink-0">
-                AI
-              </div>
+  <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-white shrink-0">
+      AI
+    </div>
+    <div className="space-y-2">
+      <div className="prose prose-slate max-w-none">
+        <p>{lastAnswer.content}</p>
+      </div>
 
-              <div className="space-y-2">
-                <div className="prose prose-slate max-w-none">
-                  <p>{lastAnswer.content}</p>
-                </div>
-
-                <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={() => handleCitationClick(1)}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded border transition-colors"
-                  >
-                    Reference: Page 1
-                  </button>
-
-                  <button
-                    onClick={() => handleCitationClick(3)}
-                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded border transition-colors"
-                  >
-                    Reference: Page 3
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+      {/* [+] REAL CITATION BUTTONS */}
+      {lastAnswer.citations && lastAnswer.citations.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-slate-100">
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Sources:
+          </span>
+          {lastAnswer.citations.map((page) => (
+            <button
+              key={page}
+              onClick={() => handleCitationClick(page)}
+              className="flex items-center gap-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-2 py-1 rounded border border-indigo-200 transition-colors"
+            >
+              📄 Page {page}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+)}
         </div>
 
         <div className="p-4 border-t bg-white">
