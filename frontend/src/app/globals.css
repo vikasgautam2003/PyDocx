@@ -125,3 +125,45 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+
+
+
+
+
+/* ===============================
+   PREMIUM INVISIBLE SCROLLBARS
+   =============================== */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+/* WebKit (Chrome, Edge, Safari) */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 999px;
+  transition: background-color 0.25s ease;
+}
+
+/* Show only on hover/scroll interaction */
+*:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.18);
+}
+
+/* Slightly darker while actively dragging */
+*::-webkit-scrollbar-thumb:active {
+  background-color: rgba(0, 0, 0, 0.28);
+}

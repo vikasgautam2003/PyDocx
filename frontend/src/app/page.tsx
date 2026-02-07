@@ -1,32 +1,22 @@
 
 
 
-
-
-
-
-
-
-
-
 // "use client";
 
 // import { useState } from "react";
-// import { UploadZone } from "@/app/components/upload-zone";
-// import { ReasoningDrawer } from "@/app/components/reasoning-drawer";
-// import { useAgent } from "@/hooks/useAgent";
-// import { Input } from "@/components/ui/input";
-// import { Button } from "@/components/ui/button";
-// import { Send } from "lucide-react";
 // import dynamic from "next/dynamic";
+// // Keep your existing import paths
+// import { UploadZone } from "@/app/components/upload-zone";
+// import { ChatInterface } from "@/app/components/chat-interface";
 
+// // Dynamic Import for PDF (Client-side only)
 // const PDFViewer = dynamic(
 //   () => import("@/app/components/pdf-viewer").then((mod) => mod.PDFViewer),
 //   {
 //     ssr: false,
 //     loading: () => (
 //       <div className="flex h-full items-center justify-center text-slate-400">
-//         Loading PDF Engine...
+//         Initializing PDF Viewer...
 //       </div>
 //     ),
 //   }
@@ -34,28 +24,17 @@
 
 // export default function Home() {
 //   const [fileId, setFileId] = useState<string | null>(null);
-//   const [query, setQuery] = useState("");
-//   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
 //   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
+//   // State for citations/highlighting
 //   const [highlightText, setHighlightText] = useState<string | null>(null);
-
 //   const [currentPage, setCurrentPage] = useState<number>(1);
-
-//   const { steps, isThinking, chat } = useAgent();
-
-//   const handleSend = () => {
-//     if (!query.trim() || !fileId) return;
-//     chat(query, fileId);
-//     setQuery("");
-//     setIsDrawerOpen(true);
-//   };
 
 //   const handleUploadComplete = (id: string, file: File) => {
 //     setFileId(id);
 //     setPdfUrl(URL.createObjectURL(file));
 //     setCurrentPage(1);
-
+//     setHighlightText(null);
 //   };
 
 //   const handleCitationClick = (page: number, text: string) => {
@@ -63,21 +42,30 @@
 //     setHighlightText(text);
 //   };
 
+//   // 1. STATE: NO FILE -> Show Upload Zone
 //   if (!fileId) {
 //     return (
-//       <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
-//         <h1 className="text-4xl font-bold tracking-tight mb-2">DocuNexus 🧠</h1>
-//         <p className="text-slate-500 mb-8">Upload a PDF to start the Ghost Agent.</p>
+//       <main className="flex min-h-screen flex-col items-center justify-center bg-slate-50 p-4">
+//         <div className="text-center mb-8 space-y-2">
+//           <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">DocuNexus 🧠</h1>
+//           <p className="text-slate-500 text-lg">Chat with your documents using Local RAG.</p>
+//         </div>
 //         <UploadZone onUploadComplete={handleUploadComplete} />
 //       </main>
 //     );
 //   }
 
-//   const lastAnswer = steps.filter((s) => s.type === "answer").pop();
-
+//   // 2. STATE: FILE LOADED -> Split Screen Layout
 //   return (
-//     <main className="flex min-h-screen bg-white">
-//       <div className="hidden lg:block w-1/2 border-r bg-slate-100 p-4">
+//     <main className="flex flex-col md:flex-row h-screen w-full bg-slate-100 overflow-hidden">
+      
+//       {/* LEFT PANEL (Top on mobile) 
+//          - flex-1: Takes available space
+//          - md:w-1/2: 50% width on desktop
+//          - h-[50vh]: 50% height on mobile
+//          - md:h-full: Full height on desktop
+//       */}
+//       <div className="w-full h-[45vh] md:h-full md:w-1/2 p-2 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-200/30">
 //         <PDFViewer
 //           url={pdfUrl}
 //           pageNumber={currentPage}
@@ -86,68 +74,16 @@
 //         />
 //       </div>
 
-//       <div className="flex-1 flex flex-col h-screen max-w-3xl mx-auto">
-//         <header className="p-4 border-b flex items-center justify-between">
-//           <h2 className="font-semibold">DocuNexus Chat</h2>
-//           <Button variant="ghost" size="sm" onClick={() => setFileId(null)}>
-//             Change PDF
-//           </Button>
-//         </header>
-
-//         <div className="flex-1 overflow-y-auto p-4 space-y-6">
-//           <ReasoningDrawer
-//             steps={steps}
-//             isOpen={isDrawerOpen}
-//             onOpenChange={setIsDrawerOpen}
-//           />
-
-//           {lastAnswer && (
-//   <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-//     <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-white shrink-0">
-//       AI
-//     </div>
-//     <div className="space-y-2">
-//       <div className="prose prose-slate max-w-none">
-//         <p>{lastAnswer.content}</p>
+//       {/* RIGHT PANEL (Bottom on mobile) 
+//       */}
+//       <div className="w-full h-[55vh] md:h-full md:w-1/2 p-2 bg-white">
+//         <ChatInterface
+//           fileId={fileId}
+//           onChangePDF={() => setFileId(null)}
+//           onCitationClick={handleCitationClick}
+//         />
 //       </div>
 
-
-//       {lastAnswer.citations && lastAnswer.citations.length > 0 && (
-//         <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-slate-100">
-//           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-//             Sources:
-//           </span>
-//           {lastAnswer.citations.map((page) => (
-//             <button
-//               key={ServerInsertedHTMLContext}
-//               onClick={() => handleCitationClick(citation.page, citation.text)}
-//               className="flex items-center gap-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-2 py-1 rounded border border-indigo-200 transition-colors"
-//             >
-//               📄 Page {page}
-//             </button>
-//           ))}
-//         </div>
-//       )}
-//     </div>
-//   </div>
-// )}
-//         </div>
-
-//         <div className="p-4 border-t bg-white">
-//           <div className="flex gap-2">
-//             <Input
-//               placeholder="Ask the Ghost Agent..."
-//               value={query}
-//               onChange={(e) => setQuery(e.target.value)}
-//               onKeyDown={(e) => e.key === "Enter" && handleSend()}
-//               disabled={isThinking}
-//             />
-//             <Button onClick={handleSend} disabled={isThinking}>
-//               <Send className="h-4 w-4" />
-//             </Button>
-//           </div>
-//         </div>
-//       </div>
 //     </main>
 //   );
 // }
@@ -164,157 +100,48 @@
 
 
 
+
+
+
+
+
 "use client";
 
 import { useState } from "react";
-// Ensure these paths match where you actually created the files
-import { UploadZone } from "@/app/components/upload-zone"; 
-import { ReasoningDrawer } from "@/app/components/reasoning-drawer";
-import { useAgent } from "@/hooks/useAgent";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
-import dynamic from "next/dynamic";
-import ReactMarkdown from "react-markdown";
-
-
-const PDFViewer = dynamic(
-  () => import("@/app/components/pdf-viewer").then((mod) => mod.PDFViewer),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-full items-center justify-center text-slate-400">
-        Loading PDF Engine...
-      </div>
-    ),
-  }
-);
+import { LandingView } from "@/app/components/home/landing-view";
+import { WorkspaceView } from "@/app/components/home/workspace-view";
 
 export default function Home() {
   const [fileId, setFileId] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-
-  // Text highlighting state
   const [highlightText, setHighlightText] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
 
-  const { steps, isThinking, chat } = useAgent();
-
-  const handleSend = () => {
-    if (!query.trim() || !fileId) return;
-    chat(query, fileId);
-    setQuery("");
-    setIsDrawerOpen(true);
-  };
-
-  // When upload is done, capture the file URL for preview
   const handleUploadComplete = (id: string, file: File) => {
     setFileId(id);
     setPdfUrl(URL.createObjectURL(file));
     setCurrentPage(1);
+    setHighlightText(null);
   };
 
-  // Handle clicking a citation button
   const handleCitationClick = (page: number, text: string) => {
     setCurrentPage(page);
-    setHighlightText(text); // Set the text to highlight
+    setHighlightText(text);
   };
 
   if (!fileId) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
-        <h1 className="text-4xl font-bold tracking-tight mb-2">DocuNexus 🧠</h1>
-        <p className="text-slate-500 mb-8">Upload a PDF to start the Ghost Agent.</p>
-        <UploadZone onUploadComplete={handleUploadComplete} />
-      </main>
-    );
+    return <LandingView onUploadComplete={handleUploadComplete} />;
   }
 
-  // Get the last answer to display
-  const lastAnswer = steps.filter((s) => s.type === "answer").pop();
-
   return (
-    <main className="flex min-h-screen bg-white">
-      {/* LEFT PANEL: PDF VIEWER */}
-      <div className="hidden lg:block w-1/2 border-r bg-slate-100 p-4">
-        <PDFViewer
-          url={pdfUrl}
-          pageNumber={currentPage}
-          onPageChange={setCurrentPage}
-          searchText={highlightText} // Pass highlight text
-        />
-      </div>
-
-      {/* RIGHT PANEL: CHAT */}
-      <div className="flex-1 flex flex-col h-screen max-w-3xl mx-auto">
-        <header className="p-4 border-b flex items-center justify-between">
-          <h2 className="font-semibold">DocuNexus Chat</h2>
-          <Button variant="ghost" size="sm" onClick={() => setFileId(null)}>
-            Change PDF
-          </Button>
-        </header>
-
-        {/* CHAT AREA */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          <ReasoningDrawer
-            steps={steps}
-            isOpen={isDrawerOpen}
-            onOpenChange={setIsDrawerOpen}
-          />
-
-          {lastAnswer && (
-            <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="h-8 w-8 rounded-full bg-purple-600 flex items-center justify-center text-white shrink-0">
-                AI
-              </div>
-              <div className="space-y-2 w-full">
-                <article className="prose prose-slate prose-sm max-w-none">
-                  <ReactMarkdown>
-                    {lastAnswer.content}
-                  </ReactMarkdown>
-                </article>
-
-                {/* CITATIONS SECTION */}
-                {lastAnswer.citations && lastAnswer.citations.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-slate-100">
-                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                      Sources:
-                    </span>
-                    {/* FIXED MAPPING LOGIC HERE */}
-                    {lastAnswer.citations.map((citation, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleCitationClick(citation.page, citation.text)}
-                        className="flex items-center gap-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-600 px-2 py-1 rounded border border-indigo-200 transition-colors"
-                      >
-                        📄 Page {citation.page}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* INPUT AREA */}
-        <div className="p-4 border-t bg-white">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Ask the Ghost Agent..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              disabled={isThinking}
-            />
-            <Button onClick={handleSend} disabled={isThinking}>
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    </main>
+    <WorkspaceView
+      fileId={fileId}
+      pdfUrl={pdfUrl}
+      currentPage={currentPage}
+      highlightText={highlightText}
+      setCurrentPage={setCurrentPage}
+      setFileId={setFileId}
+      onCitationClick={handleCitationClick}
+    />
   );
 }
