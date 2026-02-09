@@ -9,6 +9,12 @@ from langchain_core.output_parsers import StrOutputParser
 from app.core.vector_store import get_vector_store
 from langgraph.graph import StateGraph, END
 
+from langchain_community.tools import DuckDuckGoSearchRun
+
+from duckduckgo_search import DDGS
+
+
+
 import asyncio
 
 
@@ -22,6 +28,7 @@ class AgentState(TypedDict):
     file_id: str
     context: List[Document]
     answer: str
+    web_context: str
     mode: str
     citations: List[dict]
 
@@ -40,6 +47,69 @@ class Flashcard(BaseModel):
 
 class FlashcardSet(BaseModel):
     cards: List[Flashcard]
+
+
+
+
+
+# def web_search(state: AgentState):
+#     # Only run if mode is "deep"
+#     if state.get("mode") != "deep":
+#         return {"web_context": ""}
+        
+#     print(f"🌍 [Agent] Deep Searching for: {state['question']}")
+    
+#     try:
+#         # [!] DIRECT FIX: Use the installed package directly
+#         # This bypasses LangChain's fragile wrapper
+#         with DDGS() as ddgs:
+#             # Search and get top 4 results
+#             results = list(ddgs.text(state["question"], max_results=4))
+            
+#             if not results:
+#                 return {"web_context": "No relevant web results found."}
+                
+#             # Format results into a readable string for the AI
+#             formatted_results = "\n".join(
+#                 [f"- {r['title']}: {r['body']} ({r['href']})" for r in results]
+#             )
+#             return {"web_context": formatted_results}
+
+#     except Exception as e:
+#         print(f"⚠️ Search Error: {e}")
+#         # Return empty context so the app doesn't crash
+#         return {"web_context": ""}
+
+
+
+def web_search(state: AgentState):
+    if state.get("mode") != "deep":
+        return {"web_context": ""}
+        
+    print(f"🌍 [Agent] Deep Searching for: {state['question']}")
+    
+    try:
+        # [!] FIX: Add backend="html" to bypass the 202 Ratelimit
+        with DDGS() as ddgs:
+            results = list(ddgs.text(
+                state["question"], 
+                max_results=4,
+                backend="html"  # <--- THIS IS THE KEY FIX
+            ))
+            
+            if not results:
+                return {"web_context": "No relevant web results found."}
+                
+            formatted_results = "\n".join(
+                [f"- {r['title']}: {r['body']} ({r['href']})" for r in results]
+            )
+            return {"web_context": formatted_results}
+            
+    except Exception as e:
+        print(f"⚠️ Search Error: {e}")
+        return {"web_context": ""} # Fail gracefully
+
+
 
 
 async def generate_flashcards(file_id: str):
@@ -94,7 +164,7 @@ async def generate_document_briefing(file_id: str):
     vector_store = get_vector_store(namespace=file_id)
     docs = []
 
-    for attempt in range(5):
+    for attempt in range(15):
         try:
             db_result = vector_store.get(limit=10)
 
@@ -159,9 +229,115 @@ def retrieve(state: AgentState):
     return {"context": docs}
 
 
-def generate(state: AgentState):
-    print(f"💡 [Agent] Generating answer...")
+# def generate(state: AgentState):
+#     print(f"💡 [Agent] Generating answer...")
 
+#     docs = state["context"]
+#     citations = []
+
+#     for doc in docs:
+#         page_idx = doc.metadata.get("page", 0)
+#         readable_page = int(page_idx) + 1
+#         snippet = doc.page_content.replace("\n", " ").strip()[:150]
+
+#         citations.append({
+#             "page": readable_page,
+#             "text": snippet
+#         })
+
+#     unique_citations = []
+#     seen = set()
+
+#     for c in citations:
+#         signature = (c["page"], c["text"])
+#         if signature not in seen:
+#             seen.add(signature)
+#             unique_citations.append(c)
+
+#     unique_citations.sort(key=lambda x: x["page"])
+
+
+#     context_text = "\n\n".join([d.page_content for d in state["context"]])
+#     web_text = state.get("web_context", "")
+
+#     full_context = f"PDF CONTENT:\n{context_text}\n\nWEB CONTENT:\n{web_text}"
+   
+#     mode = state.get("mode", "standard")
+
+#     if mode == "nemesis":
+#         template = """You are 'The Nemesis', a ruthless, hyper-critical auditor and devil's advocate.
+        
+#         Your Goal: 
+#         - Do NOT just answer the question. 
+#         - Attack the premise. Find what is MISSING from the context.
+#         - Highlight risks, logical fallacies, or vague language in the document.
+#         - Use your own external knowledge to point out industry standards that are absent here.
+#         - Be direct, skeptical, and slightly aggressive. Use 🔴 emojis for risks.
+        
+#         Context from Document:
+#         {context}
+
+#         User Question: {question}
+        
+#         Analysis:
+#         """
+
+#         pass
+#     elif mode == "deep":
+        
+#         template = """You are a Deep Research Assistant. 
+#         You have access to both the uploaded document AND the web.
+        
+#         Your Goal: Answer the question comprehensively. 
+#         - If the PDF has the answer, prioritize it.
+#         - If the PDF is missing info (e.g. definitions, external facts), use the WEB CONTENT to fill the gaps.
+#         - Explicitly mention when you are using external info (e.g. "According to web sources...").
+        
+#         Context:
+#         {context}
+
+#         Question: {question}
+#         """
+
+#     else:
+
+
+#         template = """You are an expert teacher and technical assistant. 
+#         Your goal is to answer the user's question clearly, accurately, and well-structured based *only* on the provided context.
+
+#         structure your answer using Markdown formatting:
+#         - Use **Bold** for key terms or important numbers.
+#         - Use `## Headings` to separate different topics or sections.
+#         - Use lists (- Item 1) for steps, features, or multiple points.
+#         - If there is code, use code blocks.
+#         - Be concise but thorough.
+
+#         If the answer is not in the context, politely say you don't know.
+
+#         Context:
+#         {context}
+
+#         Question: {question}
+#         """
+
+#     prompt = ChatPromptTemplate.from_template(template)
+#     chain = prompt | llm | StrOutputParser()
+
+#     response = chain.invoke({
+#         "context": state["context"],
+#         "question": state["question"]
+#     })
+
+#     return {
+#         "answer": response,
+#         "citations": unique_citations
+#     }
+
+
+def generate(state: AgentState):
+    print(f"💡 [Agent] Generating answer in {state.get('mode', 'standard')} mode...")
+
+    # 1. Process Citations
     docs = state["context"]
     citations = []
 
@@ -186,9 +362,17 @@ def generate(state: AgentState):
 
     unique_citations.sort(key=lambda x: x["page"])
 
-   
+    # 2. Prepare Context Strings
+    # Convert list of documents to a single string for the prompt
+    context_text = "\n\n".join([d.page_content for d in state["context"]])
+    web_text = state.get("web_context", "")
+
+    # Default context input (just PDF)
+    final_context_input = context_text 
+
     mode = state.get("mode", "standard")
 
+    # 3. Select Prompt & Context based on Mode
     if mode == "nemesis":
         template = """You are 'The Nemesis', a ruthless, hyper-critical auditor and devil's advocate.
         
@@ -206,9 +390,27 @@ def generate(state: AgentState):
         
         Analysis:
         """
+
+    elif mode == "deep":
+        # [!] CRITICAL FIX: Use Combined Context (PDF + Web) for Deep Mode
+        final_context_input = f"PDF CONTENT:\n{context_text}\n\nWEB CONTENT:\n{web_text}"
+        
+        template = """You are a Deep Research Assistant. 
+        You have access to both the uploaded document AND the web.
+        
+        Your Goal: Answer the question comprehensively. 
+        - If the PDF has the answer, prioritize it.
+        - If the PDF is missing info (e.g. definitions, external facts), use the WEB CONTENT to fill the gaps.
+        - Explicitly mention when you are using external info (e.g. "According to web sources...").
+        
+        Context:
+        {context}
+
+        Question: {question}
+        """
+
     else:
-
-
+        # Standard Mode
         template = """You are an expert teacher and technical assistant. 
         Your goal is to answer the user's question clearly, accurately, and well-structured based *only* on the provided context.
 
@@ -227,11 +429,12 @@ def generate(state: AgentState):
         Question: {question}
         """
 
+    # 4. Invoke LLM
     prompt = ChatPromptTemplate.from_template(template)
     chain = prompt | llm | StrOutputParser()
 
     response = chain.invoke({
-        "context": state["context"],
+        "context": final_context_input, # [!] Passes the correct string (PDF or Combined)
         "question": state["question"]
     })
 
@@ -244,9 +447,11 @@ def generate(state: AgentState):
 workflow = StateGraph(AgentState)
 
 workflow.add_node("retrieve", retrieve)
+workflow.add_node("web_search", web_search)
 workflow.add_node("generate", generate)
 
 workflow.set_entry_point("retrieve")
+workflow.add_edge("retrieve", "web_search")
 workflow.add_edge("retrieve", "generate")
 workflow.add_edge("generate", END)
 

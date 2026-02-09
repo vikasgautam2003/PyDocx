@@ -17,7 +17,7 @@ export function useAgent() {
   const [steps, setSteps] = useState<AgentStep[]>([]);
   const [isThinking, setIsThinking] = useState(false);
 
-  const chat = async (query: string, fileId: string, mode: "standard" | "nemesis" = "standard") => {
+  const chat = async (query: string, fileId: string, mode: "standard" | "nemesis" | "deep" = "standard") => {
     setIsThinking(true);
 
     setSteps([
