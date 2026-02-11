@@ -1,17 +1,499 @@
 
 
+# # import os
+# # from typing import List, TypedDict
+# # from langchain_core.documents import Document
+# # from langchain_core.prompts import ChatPromptTemplate
+# # from langchain_google_genai import ChatGoogleGenerativeAI
+# # from langchain_core.output_parsers import StrOutputParser
+# # from app.core.vector_store import get_vector_store
+# # from langgraph.graph import StateGraph, END
+
+# # from langchain_community.tools import DuckDuckGoSearchRun
+
+# # from duckduckgo_search import DDGS
+
+
+
+# # import asyncio
+
+
+# # from pydantic import BaseModel, Field
+# # from typing import List
+
+
+
+# # class AgentState(TypedDict):
+# #     question: str
+# #     file_id: str
+# #     context: List[Document]
+# #     answer: str
+# #     web_context: str
+# #     mode: str
+# #     citations: List[dict]
+
+
+# # llm = ChatGoogleGenerativeAI(
+# #     model="gemini-2.5-flash",
+# #     temperature=0,
+# #     max_retries=2,
+# # )
+
+
+# # class Flashcard(BaseModel):
+# #     front: str = Field(description="The question or concept (Front of card)")
+# #     back: str = Field(description="The answer or definition (Back of card)")
+
+
+# # class FlashcardSet(BaseModel):
+# #     cards: List[Flashcard]
+
+
+
+
+
+# # # def web_search(state: AgentState):
+# # #     # Only run if mode is "deep"
+# # #     if state.get("mode") != "deep":
+# # #         return {"web_context": ""}
+        
+# # #     print(f"🌍 [Agent] Deep Searching for: {state['question']}")
+    
+# # #     try:
+# # #         # [!] DIRECT FIX: Use the installed package directly
+# # #         # This bypasses LangChain's fragile wrapper
+# # #         with DDGS() as ddgs:
+# # #             # Search and get top 4 results
+# # #             results = list(ddgs.text(state["question"], max_results=4))
+            
+# # #             if not results:
+# # #                 return {"web_context": "No relevant web results found."}
+                
+# # #             # Format results into a readable string for the AI
+# # #             formatted_results = "\n".join(
+# # #                 [f"- {r['title']}: {r['body']} ({r['href']})" for r in results]
+# # #             )
+# # #             return {"web_context": formatted_results}
+
+# # #     except Exception as e:
+# # #         print(f"⚠️ Search Error: {e}")
+# # #         # Return empty context so the app doesn't crash
+# # #         return {"web_context": ""}
+
+
+
+# # def web_search(state: AgentState):
+# #     if state.get("mode") != "deep":
+# #         return {"web_context": ""}
+        
+# #     print(f"🌍 [Agent] Deep Searching for: {state['question']}")
+    
+# #     try:
+# #         # [!] FIX: Add backend="html" to bypass the 202 Ratelimit
+# #         with DDGS() as ddgs:
+# #             results = list(ddgs.text(
+# #                 state["question"], 
+# #                 max_results=4,
+# #                 backend="html"  # <--- THIS IS THE KEY FIX
+# #             ))
+            
+# #             if not results:
+# #                 return {"web_context": "No relevant web results found."}
+                
+# #             formatted_results = "\n".join(
+# #                 [f"- {r['title']}: {r['body']} ({r['href']})" for r in results]
+# #             )
+# #             return {"web_context": formatted_results}
+            
+# #     except Exception as e:
+# #         print(f"⚠️ Search Error: {e}")
+# #         return {"web_context": ""} # Fail gracefully
+
+
+
+
+# # async def generate_flashcards(file_id: str):
+# #     print(f"🃏 [Flashcards] Generating study set for {file_id}...")
+    
+# #     vector_store = get_vector_store(namespace=file_id)
+
+# #     try:
+# #         db_result = vector_store.get(limit=15)
+# #         if db_result and db_result['documents']:
+# #             docs = [
+# #                 Document(page_content=txt)
+# #                 for txt in db_result['documents']
+# #             ]
+# #         else:
+# #             return {"cards": []}
+# #     except Exception as e:
+# #         print(f"⚠️ Flashcard Fetch Error: {e}")
+# #         return {"cards": []}
+
+# #     context_text = "\n\n".join([d.page_content for d in docs])[:6000]
+
+# #     template = """You are an expert tutor. 
+# #     Create a set of 8-10 high-quality flashcards to help a student learn this document.
+    
+# #     Focus on:
+# #     - Key definitions (What is X?)
+# #     - Important dates or figures.
+# #     - Core concepts and their explanations.
+# #     - Keep the "Front" short (under 15 words).
+# #     - Keep the "Back" clear and concise (under 40 words).
+    
+# #     Document Excerpt:
+# #     {context}
+# #     """
+    
+# #     structured_llm = llm.with_structured_output(FlashcardSet)
+    
+# #     try:
+# #         response = await structured_llm.ainvoke(template.format(context=context_text))
+# #         return response.dict()
+# #     except Exception as e:
+# #         print(f"⚠️ Flashcard LLM Error: {e}")
+# #         return {"cards": []}
+
+
+
+
+# # async def generate_document_briefing(file_id: str):
+# #     print(f"📊 [Briefing] Generating summary for {file_id}...")
+
+# #     vector_store = get_vector_store(namespace=file_id)
+# #     docs = []
+
+# #     for attempt in range(15):
+# #         try:
+# #             db_result = vector_store.get(limit=10)
+
+# #             if db_result and db_result['documents'] and len(db_result['documents']) > 0:
+# #                 print(f"✅ Found data on attempt {attempt+1}")
+
+# #                 docs = [
+# #                     Document(page_content=txt, metadata=meta)
+# #                     for txt, meta in zip(db_result['documents'], db_result['metadatas'])
+# #                 ]
+# #                 break
+
+# #         except Exception as e:
+# #             print(f"⚠️ Attempt {attempt+1} check failed: {e}")
+
+# #         print(f"⏳ API waiting for Worker... (Attempt {attempt+1}/5)")
+# #         await asyncio.sleep(2)
+
+# #     if not docs:
+# #         print("❌ No documents found after retries. Worker is too slow or failed.")
+# #         return {
+# #             "summary": ["Processing is taking longer than expected."],
+# #             "suggested_questions": ["Please wait a moment and try asking a question."]
+# #         }
+
+# #     context_text = "\n\n".join([d.page_content for d in docs])[:4000]
+
+# #     template = """You are a senior analyst. 
+# #     Analyze the following document excerpt and provide a structured briefing.
+    
+# #     Document Excerpt:
+# #     {context}
+    
+# #     Output strictly in JSON format with these fields:
+# #     - "summary": A list of 3 concise bullet points summarizing the key themes.
+# #     - "suggested_questions": A list of 3 specific, interesting questions a user might ask about this text.
+# #     """
+
+# #     class Briefing(BaseModel):
+# #         summary: List[str] = Field(description="3 bullet points summary")
+# #         suggested_questions: List[str] = Field(description="3 suggested follow-up questions")
+
+# #     structured_llm = llm.with_structured_output(Briefing)
+
+# #     try:
+# #         response = await structured_llm.ainvoke(template.format(context=context_text))
+# #         return response.dict()
+# #     except Exception as e:
+# #         print(f"⚠️ Briefing LLM Error: {e}")
+# #         return {
+# #             "summary": ["Could not generate summary."],
+# #             "suggested_questions": ["What is this document about?"]
+# #         }
+
+
+
+# # def retrieve(state: AgentState):
+# #     print(f"🔍 [Agent] Retrieving context for: {state['question']}")
+# #     vector_store = get_vector_store(namespace=state["file_id"])
+# #     retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+# #     docs = retriever.invoke(state["question"])
+# #     return {"context": docs}
+
+
+# # # def generate(state: AgentState):
+# # #     print(f"💡 [Agent] Generating answer...")
+
+# # #     docs = state["context"]
+# # #     citations = []
+
+# # #     for doc in docs:
+# # #         page_idx = doc.metadata.get("page", 0)
+# # #         readable_page = int(page_idx) + 1
+# # #         snippet = doc.page_content.replace("\n", " ").strip()[:150]
+
+# # #         citations.append({
+# # #             "page": readable_page,
+# # #             "text": snippet
+# # #         })
+
+# # #     unique_citations = []
+# # #     seen = set()
+
+# # #     for c in citations:
+# # #         signature = (c["page"], c["text"])
+# # #         if signature not in seen:
+# # #             seen.add(signature)
+# # #             unique_citations.append(c)
+
+# # #     unique_citations.sort(key=lambda x: x["page"])
+
+
+# # #     context_text = "\n\n".join([d.page_content for d in state["context"]])
+# # #     web_text = state.get("web_context", "")
+
+# # #     full_context = f"PDF CONTENT:\n{context_text}\n\nWEB CONTENT:\n{web_text}"
+   
+# # #     mode = state.get("mode", "standard")
+
+# # #     if mode == "nemesis":
+# # #         template = """You are 'The Nemesis', a ruthless, hyper-critical auditor and devil's advocate.
+        
+# # #         Your Goal: 
+# # #         - Do NOT just answer the question. 
+# # #         - Attack the premise. Find what is MISSING from the context.
+# # #         - Highlight risks, logical fallacies, or vague language in the document.
+# # #         - Use your own external knowledge to point out industry standards that are absent here.
+# # #         - Be direct, skeptical, and slightly aggressive. Use 🔴 emojis for risks.
+        
+# # #         Context from Document:
+# # #         {context}
+
+# # #         User Question: {question}
+        
+# # #         Analysis:
+# # #         """
+
+# # #         pass
+# # #     elif mode == "deep":
+        
+# # #         template = """You are a Deep Research Assistant. 
+# # #         You have access to both the uploaded document AND the web.
+        
+# # #         Your Goal: Answer the question comprehensively. 
+# # #         - If the PDF has the answer, prioritize it.
+# # #         - If the PDF is missing info (e.g. definitions, external facts), use the WEB CONTENT to fill the gaps.
+# # #         - Explicitly mention when you are using external info (e.g. "According to web sources...").
+        
+# # #         Context:
+# # #         {context}
+
+# # #         Question: {question}
+# # #         """
+
+# # #     else:
+
+
+# # #         template = """You are an expert teacher and technical assistant. 
+# # #         Your goal is to answer the user's question clearly, accurately, and well-structured based *only* on the provided context.
+
+# # #         structure your answer using Markdown formatting:
+# # #         - Use **Bold** for key terms or important numbers.
+# # #         - Use `## Headings` to separate different topics or sections.
+# # #         - Use lists (- Item 1) for steps, features, or multiple points.
+# # #         - If there is code, use code blocks.
+# # #         - Be concise but thorough.
+
+# # #         If the answer is not in the context, politely say you don't know.
+
+# # #         Context:
+# # #         {context}
+
+# # #         Question: {question}
+# # #         """
+
+# # #     prompt = ChatPromptTemplate.from_template(template)
+# # #     chain = prompt | llm | StrOutputParser()
+
+# # #     response = chain.invoke({
+# # #         "context": state["context"],
+# # #         "question": state["question"]
+# # #     })
+
+# # #     return {
+# # #         "answer": response,
+# # #         "citations": unique_citations
+# # #     }
+
+
+# # def generate(state: AgentState):
+# #     print(f"💡 [Agent] Generating answer in {state.get('mode', 'standard')} mode...")
+
+# #     # 1. Process Citations
+# #     docs = state["context"]
+# #     citations = []
+
+# #     for doc in docs:
+# #         page_idx = doc.metadata.get("page", 0)
+# #         readable_page = int(page_idx) + 1
+# #         snippet = doc.page_content.replace("\n", " ").strip()[:150]
+
+# #         citations.append({
+# #             "page": readable_page,
+# #             "text": snippet
+# #         })
+
+# #     unique_citations = []
+# #     seen = set()
+
+# #     for c in citations:
+# #         signature = (c["page"], c["text"])
+# #         if signature not in seen:
+# #             seen.add(signature)
+# #             unique_citations.append(c)
+
+# #     unique_citations.sort(key=lambda x: x["page"])
+
+# #     # 2. Prepare Context Strings
+# #     # Convert list of documents to a single string for the prompt
+# #     context_text = "\n\n".join([d.page_content for d in state["context"]])
+# #     web_text = state.get("web_context", "")
+
+# #     # Default context input (just PDF)
+# #     final_context_input = context_text 
+
+# #     mode = state.get("mode", "standard")
+
+# #     # 3. Select Prompt & Context based on Mode
+# #     if mode == "nemesis":
+# #         template = """You are 'The Nemesis', a ruthless, hyper-critical auditor and devil's advocate.
+        
+# #         Your Goal: 
+# #         - Do NOT just answer the question. 
+# #         - Attack the premise. Find what is MISSING from the context.
+# #         - Highlight risks, logical fallacies, or vague language in the document.
+# #         - Use your own external knowledge to point out industry standards that are absent here.
+# #         - Be direct, skeptical, and slightly aggressive. Use 🔴 emojis for risks.
+        
+# #         Context from Document:
+# #         {context}
+
+# #         User Question: {question}
+        
+# #         Analysis:
+# #         """
+
+# #     elif mode == "deep":
+# #         # [!] CRITICAL FIX: Use Combined Context (PDF + Web) for Deep Mode
+# #         final_context_input = f"PDF CONTENT:\n{context_text}\n\nWEB CONTENT:\n{web_text}"
+        
+# #         template = """You are a Deep Research Assistant. 
+# #         You have access to both the uploaded document AND the web.
+        
+# #         Your Goal: Answer the question comprehensively. 
+# #         - If the PDF has the answer, prioritize it.
+# #         - If the PDF is missing info (e.g. definitions, external facts), use the WEB CONTENT to fill the gaps.
+# #         - Explicitly mention when you are using external info (e.g. "According to web sources...").
+        
+# #         Context:
+# #         {context}
+
+# #         Question: {question}
+# #         """
+
+# #     else:
+# #         # Standard Mode
+# #         template = """You are an expert teacher and technical assistant. 
+# #         Your goal is to answer the user's question clearly, accurately, and well-structured based *only* on the provided context.
+
+# #         structure your answer using Markdown formatting:
+# #         - Use **Bold** for key terms or important numbers.
+# #         - Use `## Headings` to separate different topics or sections.
+# #         - Use lists (- Item 1) for steps, features, or multiple points.
+# #         - If there is code, use code blocks.
+# #         - Be concise but thorough.
+
+# #         If the answer is not in the context, politely say you don't know.
+
+# #         Context:
+# #         {context}
+
+# #         Question: {question}
+# #         """
+
+# #     # 4. Invoke LLM
+# #     prompt = ChatPromptTemplate.from_template(template)
+# #     chain = prompt | llm | StrOutputParser()
+
+# #     response = chain.invoke({
+# #         "context": final_context_input, # [!] Passes the correct string (PDF or Combined)
+# #         "question": state["question"]
+# #     })
+
+# #     return {
+# #         "answer": response,
+# #         "citations": unique_citations
+# #     }
+
+
+# # workflow = StateGraph(AgentState)
+
+# # workflow.add_node("retrieve", retrieve)
+# # workflow.add_node("web_search", web_search)
+# # workflow.add_node("generate", generate)
+
+# # workflow.set_entry_point("retrieve")
+# # workflow.add_edge("retrieve", "web_search")
+# # workflow.add_edge("retrieve", "generate")
+# # workflow.add_edge("generate", END)
+
+# # rag_app = workflow.compile()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # import os
 # from typing import List, TypedDict
 # from langchain_core.documents import Document
 # from langchain_core.prompts import ChatPromptTemplate
-# from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 # from langchain_core.output_parsers import StrOutputParser
 # from app.core.vector_store import get_vector_store
 # from langgraph.graph import StateGraph, END
+# from langchain_chroma import Chroma
+# # from langgraph.checkpoint.redis import RedisSaver
+
+# from app.services.ingestion import ingest_document
+# from redis import Redis
+# from app.core.config import settings
 
 # from langchain_community.tools import DuckDuckGoSearchRun
 
+# import re
 # from duckduckgo_search import DDGS
+
+# from app.core.celery_app import celery_app
 
 
 
@@ -22,6 +504,38 @@
 # from typing import List
 
 
+
+
+# @celery_app.task(name="process_document")
+# def process_document(file_id: str, text_content: str):
+#     print(f"📄 [Worker] Received text content for: {file_id}")
+    
+#     try:
+#         loop = asyncio.get_event_loop()
+#         if loop.is_closed():
+#             loop = asyncio.new_event_loop()
+#             asyncio.set_event_loop(loop)
+            
+#         return loop.run_until_complete(ingest_document(file_id, text_content))
+        
+#     except Exception as e:
+#         print(f"❌ [Worker] Task failed: {e}")
+#         return {"status": "error", "message": str(e)}
+
+
+
+# def sanitize_collection_name(name: str) -> str:
+#     if not name: return ""
+#     name = os.path.basename(name)
+#     name = os.path.splitext(name)[0]
+#     name = re.sub(r'[^a-zA-Z0-9._-]', '_', name)
+#     name = name.strip('._-')
+#     return name[:63]
+
+
+
+
+    
 
 # class AgentState(TypedDict):
 #     question: str
@@ -52,33 +566,6 @@
 
 
 
-# # def web_search(state: AgentState):
-# #     # Only run if mode is "deep"
-# #     if state.get("mode") != "deep":
-# #         return {"web_context": ""}
-        
-# #     print(f"🌍 [Agent] Deep Searching for: {state['question']}")
-    
-# #     try:
-# #         # [!] DIRECT FIX: Use the installed package directly
-# #         # This bypasses LangChain's fragile wrapper
-# #         with DDGS() as ddgs:
-# #             # Search and get top 4 results
-# #             results = list(ddgs.text(state["question"], max_results=4))
-            
-# #             if not results:
-# #                 return {"web_context": "No relevant web results found."}
-                
-# #             # Format results into a readable string for the AI
-# #             formatted_results = "\n".join(
-# #                 [f"- {r['title']}: {r['body']} ({r['href']})" for r in results]
-# #             )
-# #             return {"web_context": formatted_results}
-
-# #     except Exception as e:
-# #         print(f"⚠️ Search Error: {e}")
-# #         # Return empty context so the app doesn't crash
-# #         return {"web_context": ""}
 
 
 
@@ -115,7 +602,11 @@
 # async def generate_flashcards(file_id: str):
 #     print(f"🃏 [Flashcards] Generating study set for {file_id}...")
     
-#     vector_store = get_vector_store(namespace=file_id)
+#     clean_id = sanitize_collection_name(file_id)
+#     print(f"🃏 [Flashcards] Generating study set for {clean_id}...")
+    
+#     # Use clean_id for the database lookup
+#     vector_store = get_vector_store(namespace=clean_id)
 
 #     try:
 #         db_result = vector_store.get(limit=15)
@@ -161,7 +652,10 @@
 # async def generate_document_briefing(file_id: str):
 #     print(f"📊 [Briefing] Generating summary for {file_id}...")
 
-#     vector_store = get_vector_store(namespace=file_id)
+#     clean_id = sanitize_collection_name(file_id)
+#     print(f"📊 [Briefing] Generating summary for {clean_id}...")
+
+#     vector_store = get_vector_store(namespace=clean_id)
 #     docs = []
 
 #     for attempt in range(15):
@@ -223,115 +717,22 @@
 
 # def retrieve(state: AgentState):
 #     print(f"🔍 [Agent] Retrieving context for: {state['question']}")
-#     vector_store = get_vector_store(namespace=state["file_id"])
+#     # vector_store = get_vector_store(namespace=state["file_id"])
+
+#     clean_id = sanitize_collection_name(state["file_id"])
+    
+#     vector_store = get_vector_store(namespace=clean_id)
 #     retriever = vector_store.as_retriever(search_kwargs={"k": 3})
 #     docs = retriever.invoke(state["question"])
+
+#     if not docs:
+#         print(f"⚠️ [Agent] WARNING: No documents found in '{clean_id}'! Database might be empty.")
+#     else:
+#         print(f"✅ [Agent] Found {len(docs)} relevant chunks.")
 #     return {"context": docs}
 
 
-# # def generate(state: AgentState):
-# #     print(f"💡 [Agent] Generating answer...")
 
-# #     docs = state["context"]
-# #     citations = []
-
-# #     for doc in docs:
-# #         page_idx = doc.metadata.get("page", 0)
-# #         readable_page = int(page_idx) + 1
-# #         snippet = doc.page_content.replace("\n", " ").strip()[:150]
-
-# #         citations.append({
-# #             "page": readable_page,
-# #             "text": snippet
-# #         })
-
-# #     unique_citations = []
-# #     seen = set()
-
-# #     for c in citations:
-# #         signature = (c["page"], c["text"])
-# #         if signature not in seen:
-# #             seen.add(signature)
-# #             unique_citations.append(c)
-
-# #     unique_citations.sort(key=lambda x: x["page"])
-
-
-# #     context_text = "\n\n".join([d.page_content for d in state["context"]])
-# #     web_text = state.get("web_context", "")
-
-# #     full_context = f"PDF CONTENT:\n{context_text}\n\nWEB CONTENT:\n{web_text}"
-   
-# #     mode = state.get("mode", "standard")
-
-# #     if mode == "nemesis":
-# #         template = """You are 'The Nemesis', a ruthless, hyper-critical auditor and devil's advocate.
-        
-# #         Your Goal: 
-# #         - Do NOT just answer the question. 
-# #         - Attack the premise. Find what is MISSING from the context.
-# #         - Highlight risks, logical fallacies, or vague language in the document.
-# #         - Use your own external knowledge to point out industry standards that are absent here.
-# #         - Be direct, skeptical, and slightly aggressive. Use 🔴 emojis for risks.
-        
-# #         Context from Document:
-# #         {context}
-
-# #         User Question: {question}
-        
-# #         Analysis:
-# #         """
-
-# #         pass
-# #     elif mode == "deep":
-        
-# #         template = """You are a Deep Research Assistant. 
-# #         You have access to both the uploaded document AND the web.
-        
-# #         Your Goal: Answer the question comprehensively. 
-# #         - If the PDF has the answer, prioritize it.
-# #         - If the PDF is missing info (e.g. definitions, external facts), use the WEB CONTENT to fill the gaps.
-# #         - Explicitly mention when you are using external info (e.g. "According to web sources...").
-        
-# #         Context:
-# #         {context}
-
-# #         Question: {question}
-# #         """
-
-# #     else:
-
-
-# #         template = """You are an expert teacher and technical assistant. 
-# #         Your goal is to answer the user's question clearly, accurately, and well-structured based *only* on the provided context.
-
-# #         structure your answer using Markdown formatting:
-# #         - Use **Bold** for key terms or important numbers.
-# #         - Use `## Headings` to separate different topics or sections.
-# #         - Use lists (- Item 1) for steps, features, or multiple points.
-# #         - If there is code, use code blocks.
-# #         - Be concise but thorough.
-
-# #         If the answer is not in the context, politely say you don't know.
-
-# #         Context:
-# #         {context}
-
-# #         Question: {question}
-# #         """
-
-# #     prompt = ChatPromptTemplate.from_template(template)
-# #     chain = prompt | llm | StrOutputParser()
-
-# #     response = chain.invoke({
-# #         "context": state["context"],
-# #         "question": state["question"]
-# #     })
-
-# #     return {
-# #         "answer": response,
-# #         "citations": unique_citations
-# #     }
 
 
 # def generate(state: AgentState):
@@ -451,8 +852,8 @@
 # workflow.add_node("generate", generate)
 
 # workflow.set_entry_point("retrieve")
-# workflow.add_edge("retrieve", "web_search")
-# workflow.add_edge("retrieve", "generate")
+# workflow.add_edge("retrieve", "web_search") # Retrieve -> Web Search
+# workflow.add_edge("web_search", "generate") # Web Search -> Generate
 # workflow.add_edge("generate", END)
 
 # rag_app = workflow.compile()
@@ -460,56 +861,82 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 import os
-from typing import List, TypedDict
+import re
+import asyncio
+from typing import List, TypedDict, Optional
+from pydantic import BaseModel, Field
+
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import StrOutputParser
-from app.core.vector_store import get_vector_store
 from langgraph.graph import StateGraph, END
-from langchain_chroma import Chroma
-# from langgraph.checkpoint.redis import RedisSaver
 
-from app.services.ingestion import ingest_document
-from redis import Redis
-from app.core.config import settings
-
-from langchain_community.tools import DuckDuckGoSearchRun
-
+from app.core.vector_store import get_vector_store
+from app.core.celery_app import celery_app
 from duckduckgo_search import DDGS
 
-from app.core.celery_app import celery_app
+# --- MODELS ---
 
+class AgentState(TypedDict):
+    question: str
+    file_id: str
+    context: List[Document]
+    answer: str
+    web_context: str
+    mode: str
+    citations: List[dict]
 
+class Flashcard(BaseModel):
+    front: str = Field(description="The question or concept (Front of card)")
+    back: str = Field(description="The answer or definition (Back of card)")
 
-import asyncio
+class FlashcardSet(BaseModel):
+    cards: List[Flashcard]
 
+# --- HELPERS ---
 
-from pydantic import BaseModel, Field
-from typing import List
+def sanitize_collection_name(name: str) -> str:
+    if not name: return ""
+    old_name = name
+    name = os.path.basename(name)
+    name = os.path.splitext(name)[0]
+    name = re.sub(r'[^a-zA-Z0-9._-]', '_', name)
+    name = name.strip('._-')
+    clean_name = name[:63]
+    print(f"🧹 [Sanitizer] Converted '{old_name}' -> '{clean_name}'")
+    return clean_name
 
+# --- LLM SETUP ---
 
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash", 
+    temperature=0,
+    max_retries=2,
+)
 
+# --- CELERY TASK ---
 
 @celery_app.task(name="process_document")
-def process_document(file_id: str, text_content: str):
-    print(f"📄 [Worker] Received text content for: {file_id}")
+def process_document(data: dict):
+    """
+    Receives a dictionary payload to prevent argument swapping.
+    data = {"file_id": "...", "text_content": "..."}
+    """
+    file_id = data.get("file_id")
+    text_content = data.get("text_content", "")
+
+    print(f"👷 [Worker] Task started for ID: {file_id}")
+    print(f"🧪 [Worker] ACTUAL Text length: {len(text_content)}")
     
+    if len(text_content) <= 36:
+         print(f"🚨 [Worker] WARNING: Data is suspicious (too short)! Content: {text_content}")
+
     try:
+        # Import inside the function to prevent circular dependency hanging
+        from app.services.ingestion import ingest_document
+        
         loop = asyncio.get_event_loop()
         if loop.is_closed():
             loop = asyncio.new_event_loop()
@@ -521,305 +948,187 @@ def process_document(file_id: str, text_content: str):
         print(f"❌ [Worker] Task failed: {e}")
         return {"status": "error", "message": str(e)}
 
-
-
-
-
-
-
-    
-
-class AgentState(TypedDict):
-    question: str
-    file_id: str
-    context: List[Document]
-    answer: str
-    web_context: str
-    mode: str
-    citations: List[dict]
-
-
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
-    temperature=0,
-    max_retries=2,
-)
-
-
-class Flashcard(BaseModel):
-    front: str = Field(description="The question or concept (Front of card)")
-    back: str = Field(description="The answer or definition (Back of card)")
-
-
-class FlashcardSet(BaseModel):
-    cards: List[Flashcard]
-
-
-
-
-
-
-
+# --- NODES ---
 
 def web_search(state: AgentState):
     if state.get("mode") != "deep":
         return {"web_context": ""}
-        
-    print(f"🌍 [Agent] Deep Searching for: {state['question']}")
+    
+    query = state['question']
+    print(f"🌍 [Agent] Deep Searching for: {query}")
     
     try:
-        # [!] FIX: Add backend="html" to bypass the 202 Ratelimit
         with DDGS() as ddgs:
-            results = list(ddgs.text(
-                state["question"], 
-                max_results=4,
-                backend="html"  # <--- THIS IS THE KEY FIX
-            ))
+            results = list(ddgs.text(query, max_results=4, backend="html"))
             
             if not results:
+                print("⚠️ [Agent] No web results found.")
                 return {"web_context": "No relevant web results found."}
                 
             formatted_results = "\n".join(
                 [f"- {r['title']}: {r['body']} ({r['href']})" for r in results]
             )
+            print(f"✅ [Agent] Found {len(results)} web results.")
             return {"web_context": formatted_results}
             
     except Exception as e:
-        print(f"⚠️ Search Error: {e}")
-        return {"web_context": ""} # Fail gracefully
-
-
-
+        print(f"⚠️ [Agent] Web Search Error: {e}")
+        return {"web_context": ""}
 
 async def generate_flashcards(file_id: str):
-    print(f"🃏 [Flashcards] Generating study set for {file_id}...")
+    clean_id = sanitize_collection_name(file_id)
+    print(f"🃏 [Flashcards] Task started for: {clean_id}")
     
-    vector_store = get_vector_store(namespace=file_id)
+    vector_store = get_vector_store(namespace=clean_id)
 
     try:
         db_result = vector_store.get(limit=15)
-        if db_result and db_result['documents']:
-            docs = [
-                Document(page_content=txt)
-                for txt in db_result['documents']
-            ]
+        if db_result and db_result['documents'] and len(db_result['documents']) > 0:
+            docs = [Document(page_content=txt) for txt in db_result['documents']]
+            print(f"✅ [Flashcards] Found {len(docs)} chunks in DB.")
         else:
+            print(f"⚠️ [Flashcards] No data found in namespace '{clean_id}'.")
             return {"cards": []}
     except Exception as e:
-        print(f"⚠️ Flashcard Fetch Error: {e}")
+        print(f"❌ [Flashcards] Database Error: {e}")
         return {"cards": []}
 
     context_text = "\n\n".join([d.page_content for d in docs])[:6000]
-
-    template = """You are an expert tutor. 
-    Create a set of 8-10 high-quality flashcards to help a student learn this document.
     
-    Focus on:
-    - Key definitions (What is X?)
-    - Important dates or figures.
-    - Core concepts and their explanations.
-    - Keep the "Front" short (under 15 words).
-    - Keep the "Back" clear and concise (under 40 words).
-    
-    Document Excerpt:
-    {context}
-    """
-    
-    structured_llm = llm.with_structured_output(FlashcardSet)
+    template = """You are an expert tutor. Create 8-10 high-quality flashcards to help a student learn this document.
+    Focus on key definitions, core concepts, and important facts.
+    Document: {context}"""
     
     try:
+        structured_llm = llm.with_structured_output(FlashcardSet)
         response = await structured_llm.ainvoke(template.format(context=context_text))
+        print(f"✅ [Flashcards] Generation successful.")
         return response.dict()
     except Exception as e:
-        print(f"⚠️ Flashcard LLM Error: {e}")
+        print(f"❌ [Flashcards] LLM Error: {e}")
         return {"cards": []}
 
-
-
-
 async def generate_document_briefing(file_id: str):
-    print(f"📊 [Briefing] Generating summary for {file_id}...")
+    clean_id = sanitize_collection_name(file_id)
+    print(f"📊 [Briefing] Task started for: {clean_id}")
 
-    vector_store = get_vector_store(namespace=file_id)
+    vector_store = get_vector_store(namespace=clean_id)
     docs = []
 
+    # Retry loop to account for worker processing time
     for attempt in range(15):
         try:
             db_result = vector_store.get(limit=10)
-
             if db_result and db_result['documents'] and len(db_result['documents']) > 0:
-                print(f"✅ Found data on attempt {attempt+1}")
-
+                print(f"✅ [Briefing] Data found on attempt {attempt+1}")
                 docs = [
                     Document(page_content=txt, metadata=meta)
                     for txt, meta in zip(db_result['documents'], db_result['metadatas'])
                 ]
                 break
-
         except Exception as e:
-            print(f"⚠️ Attempt {attempt+1} check failed: {e}")
+            print(f"⚠️ [Briefing] Attempt {attempt+1} fail: {e}")
 
-        print(f"⏳ API waiting for Worker... (Attempt {attempt+1}/5)")
+        print(f"⏳ [Briefing] Waiting for worker... ({attempt+1}/15)")
         await asyncio.sleep(2)
 
     if not docs:
-        print("❌ No documents found after retries. Worker is too slow or failed.")
-        return {
-            "summary": ["Processing is taking longer than expected."],
-            "suggested_questions": ["Please wait a moment and try asking a question."]
-        }
+        print(f"❌ [Briefing] Timeout: No data in '{clean_id}'")
+        return {"summary": ["Processing timeout."], "suggested_questions": []}
 
     context_text = "\n\n".join([d.page_content for d in docs])[:4000]
-
-    template = """You are a senior analyst. 
-    Analyze the following document excerpt and provide a structured briefing.
     
-    Document Excerpt:
-    {context}
-    
-    Output strictly in JSON format with these fields:
-    - "summary": A list of 3 concise bullet points summarizing the key themes.
-    - "suggested_questions": A list of 3 specific, interesting questions a user might ask about this text.
-    """
-
     class Briefing(BaseModel):
-        summary: List[str] = Field(description="3 bullet points summary")
-        suggested_questions: List[str] = Field(description="3 suggested follow-up questions")
+        summary: List[str]
+        suggested_questions: List[str]
 
-    structured_llm = llm.with_structured_output(Briefing)
+    template = """Analyze document and provide a structured briefing in JSON format.
+    Context: {context}"""
 
     try:
+        structured_llm = llm.with_structured_output(Briefing)
         response = await structured_llm.ainvoke(template.format(context=context_text))
+        print("✅ [Briefing] Summary generated.")
         return response.dict()
     except Exception as e:
-        print(f"⚠️ Briefing LLM Error: {e}")
-        return {
-            "summary": ["Could not generate summary."],
-            "suggested_questions": ["What is this document about?"]
-        }
-
-
+        print(f"❌ [Briefing] LLM Error: {e}")
+        return {"summary": ["Error generating briefing."], "suggested_questions": []}
 
 def retrieve(state: AgentState):
-    print(f"🔍 [Agent] Retrieving context for: {state['question']}")
-    vector_store = get_vector_store(namespace=state["file_id"])
-    retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-    docs = retriever.invoke(state["question"])
-    return {"context": docs}
-
-
-
-
+    clean_id = sanitize_collection_name(state["file_id"])
+    print(f"🔍 [Agent] Retrieving context from: '{clean_id}' for question: '{state['question']}'")
+    
+    try:
+        vector_store = get_vector_store(namespace=clean_id)
+        retriever = vector_store.as_retriever(search_kwargs={"k": 4})
+        docs = retriever.invoke(state["question"])
+        
+        if not docs:
+            print(f"⚠️ [Agent] WARNING: Zero documents retrieved from '{clean_id}'")
+        else:
+            print(f"✅ [Agent] Retrieved {len(docs)} chunks. Preview: {docs[0].page_content[:100]}...")
+            
+        return {"context": docs}
+    except Exception as e:
+        print(f"❌ [Agent] Retrieval Error: {e}")
+        return {"context": []}
 
 def generate(state: AgentState):
-    print(f"💡 [Agent] Generating answer in {state.get('mode', 'standard')} mode...")
+    mode = state.get('mode', 'standard')
+    print(f"💡 [Agent] Generating response [Mode: {mode}]")
 
-    # 1. Process Citations
-    docs = state["context"]
+    docs = state.get("context", [])
+    if not docs:
+        print("⚠️ [Agent] No context available for generation.")
+        return {"answer": "I apologize, but I don't have enough information from the document to answer that."}
+
+    # Citations processing
     citations = []
-
     for doc in docs:
         page_idx = doc.metadata.get("page", 0)
-        readable_page = int(page_idx) + 1
-        snippet = doc.page_content.replace("\n", " ").strip()[:150]
-
         citations.append({
-            "page": readable_page,
-            "text": snippet
+            "page": int(page_idx) + 1,
+            "text": doc.page_content.replace("\n", " ").strip()[:150]
         })
 
     unique_citations = []
     seen = set()
-
     for c in citations:
-        signature = (c["page"], c["text"])
-        if signature not in seen:
-            seen.add(signature)
+        sig = (c["page"], c["text"])
+        if sig not in seen:
+            seen.add(sig)
             unique_citations.append(c)
-
     unique_citations.sort(key=lambda x: x["page"])
 
-    # 2. Prepare Context Strings
-    # Convert list of documents to a single string for the prompt
-    context_text = "\n\n".join([d.page_content for d in state["context"]])
+    context_text = "\n\n".join([d.page_content for d in docs])
     web_text = state.get("web_context", "")
-
-    # Default context input (just PDF)
-    final_context_input = context_text 
-
-    mode = state.get("mode", "standard")
-
-    # 3. Select Prompt & Context based on Mode
+    
+    # Prompt logic based on mode
     if mode == "nemesis":
-        template = """You are 'The Nemesis', a ruthless, hyper-critical auditor and devil's advocate.
-        
-        Your Goal: 
-        - Do NOT just answer the question. 
-        - Attack the premise. Find what is MISSING from the context.
-        - Highlight risks, logical fallacies, or vague language in the document.
-        - Use your own external knowledge to point out industry standards that are absent here.
-        - Be direct, skeptical, and slightly aggressive. Use 🔴 emojis for risks.
-        
-        Context from Document:
-        {context}
-
-        User Question: {question}
-        
-        Analysis:
-        """
-
+        template = """You are 'The Nemesis', a ruthless, hyper-critical auditor. 
+        Attack the premise and find what is missing. Context: {context} Question: {question}"""
+        final_context = context_text
     elif mode == "deep":
-        # [!] CRITICAL FIX: Use Combined Context (PDF + Web) for Deep Mode
-        final_context_input = f"PDF CONTENT:\n{context_text}\n\nWEB CONTENT:\n{web_text}"
-        
-        template = """You are a Deep Research Assistant. 
-        You have access to both the uploaded document AND the web.
-        
-        Your Goal: Answer the question comprehensively. 
-        - If the PDF has the answer, prioritize it.
-        - If the PDF is missing info (e.g. definitions, external facts), use the WEB CONTENT to fill the gaps.
-        - Explicitly mention when you are using external info (e.g. "According to web sources...").
-        
-        Context:
-        {context}
-
-        Question: {question}
-        """
-
+        print(f"🌐 [Agent] Using combined PDF + Web context.")
+        template = """Deep Research Mode. Combine PDF and Web data. 
+        Context: {context} Question: {question}"""
+        final_context = f"PDF CONTENT:\n{context_text}\n\nWEB CONTENT:\n{web_text}"
     else:
-        # Standard Mode
-        template = """You are an expert teacher and technical assistant. 
-        Your goal is to answer the user's question clearly, accurately, and well-structured based *only* on the provided context.
+        template = """Expert Teacher Mode. Answer clearly based ONLY on context. 
+        Context: {context} Question: {question}"""
+        final_context = context_text
 
-        structure your answer using Markdown formatting:
-        - Use **Bold** for key terms or important numbers.
-        - Use `## Headings` to separate different topics or sections.
-        - Use lists (- Item 1) for steps, features, or multiple points.
-        - If there is code, use code blocks.
-        - Be concise but thorough.
+    try:
+        prompt = ChatPromptTemplate.from_template(template)
+        chain = prompt | llm | StrOutputParser()
+        response = chain.invoke({"context": final_context, "question": state["question"]})
+        print("✅ [Agent] Answer generated successfully.")
+        return {"answer": response, "citations": unique_citations}
+    except Exception as e:
+        print(f"❌ [Agent] Generation Error: {e}")
+        return {"answer": "Sorry, an error occurred while generating the response."}
 
-        If the answer is not in the context, politely say you don't know.
-
-        Context:
-        {context}
-
-        Question: {question}
-        """
-
-    # 4. Invoke LLM
-    prompt = ChatPromptTemplate.from_template(template)
-    chain = prompt | llm | StrOutputParser()
-
-    response = chain.invoke({
-        "context": final_context_input, # [!] Passes the correct string (PDF or Combined)
-        "question": state["question"]
-    })
-
-    return {
-        "answer": response,
-        "citations": unique_citations
-    }
-
+# --- WORKFLOW ---
 
 workflow = StateGraph(AgentState)
 
@@ -829,9 +1138,7 @@ workflow.add_node("generate", generate)
 
 workflow.set_entry_point("retrieve")
 workflow.add_edge("retrieve", "web_search")
-workflow.add_edge("retrieve", "generate")
+workflow.add_edge("web_search", "generate")
 workflow.add_edge("generate", END)
 
 rag_app = workflow.compile()
-
-

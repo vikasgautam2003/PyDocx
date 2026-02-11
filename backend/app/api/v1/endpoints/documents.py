@@ -1,50 +1,49 @@
-import shutil
-import os
+import io
 import uuid
+import pypdf
 from datetime import datetime
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.schemas.document import DocumentResponse
-
-from app.workers.tasks import process_document_task
+from app.agents.rag import process_document
 
 router = APIRouter()
 
-
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-
 @router.post("/upload", response_model=DocumentResponse)
-async def upload_document(
-    file: UploadFile = File(...)
-):
+async def upload_document(file: UploadFile = File(...)):
     if not file.content_type.startswith("application/pdf"):
         raise HTTPException(400, detail="Only PDF files are allowed.")
     
     file_id = str(uuid.uuid4())
-    extension = os.path.splitext(file.filename)[1]
-
-    safe_filename = f"{file_id}{extension}"
-    file_path = os.path.join(UPLOAD_DIR, safe_filename)
-
 
     try: 
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        content = await file.read()
+        pdf_stream = io.BytesIO(content)
+        pdf_reader = pypdf.PdfReader(pdf_stream)
+        
+        text = ""
+        for page in pdf_reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n\n"
+
+        if not text.strip():
+            text = "ERROR_EMPTY_OR_SCANNED_PDF"
+
+        # Pack into the dictionary payload
+        payload = {"file_id": file_id, "text_content": text}
+        
+        # Trigger task
+        task = process_document.delay(payload)
+
+        return DocumentResponse(
+            id=file_id,
+            filename=file.filename,
+            content_type=file.content_type,
+            size=len(content),
+            upload_date=datetime.utcnow(),
+            status="pending",
+            task_id=task.id
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
-    
-
-    task = process_document_task.delay(file_path, file_id)
-    
-
-
-    return DocumentResponse(
-        id=file_id,
-        filename=file.filename,
-        content_type=file.content_type,
-        size=os.path.getsize(file_path),
-        upload_date=datetime.utcnow(),
-        status="pending",
-        task_id=task.id
-    )
+        print(f"🔥 [API] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

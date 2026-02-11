@@ -1,0 +1,15 @@
+# Ignore the entire frontend folder (Crucial!)
+frontend/
+
+# Ignore git history (Heavy!)
+.git/
+.gitignore
+
+# Ignore environment secrets
+.env
+
+# Ignore Python cache & virtual envs
+__pycache__/
+*.pyc
+.venv/
+venv/
