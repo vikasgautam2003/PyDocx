@@ -506,17 +506,17 @@ from typing import List
 
 
 @celery_app.task(name="process_document")
-def process_document(file_path: str, file_id: str):
-    print(f"📄 [Worker] Received task for: {file_id}")
-
+def process_document(file_id: str, text_content: str):
+    print(f"📄 [Worker] Received text content for: {file_id}")
+    
     try:
         loop = asyncio.get_event_loop()
         if loop.is_closed():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-
-        return loop.run_until_complete(ingest_document(file_path, file_id))
-
+            
+        return loop.run_until_complete(ingest_document(file_id, text_content))
+        
     except Exception as e:
         print(f"❌ [Worker] Task failed: {e}")
         return {"status": "error", "message": str(e)}
